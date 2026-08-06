@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Local Convert — files converted without leaving this tab</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+Arabic:wght@400;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          void:    '#08090D',
+          panel:   '#101218',
+          panel2:  '#161923',
+          hair:    '#262B38',
+          text:    '#E9EBF3',
+          mute:    '#8A90A6',
+          violet:  '#7C5CFC',
+          cyan:    '#22D3EE',
+          amber:   '#F5A623',
+          rose:    '#FB7185',
+          ok:      '#34D399',
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"', 'sans-serif'],
+          body:    ['"Inter"', '"Noto Sans Arabic"', 'sans-serif'],
+          mono:    ['"IBM Plex Mono"', 'monospace'],
+        },
+      },
+    },
+  };
+</script>
+
+<!-- Conversion libraries (CDN, no backend) -->
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.2/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+
+<style>
+  body{
+    background-color:#08090D;
+    background-image:
+      radial-gradient(60vw 40vw at 12% -10%, rgba(124,92,252,0.16), transparent 60%),
+      radial-gradient(50vw 35vw at 100% 10%, rgba(34,211,238,0.10), transparent 60%);
+    background-attachment: fixed;
+  }
+  .grain{ position:fixed; inset:0; pointer-events:none; opacity:.05; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .glass{ background:rgba(16,18,24,0.72); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+  .ring-glow{ box-shadow: 0 0 0 1px rgba(124,92,252,0.25), 0 0 40px -12px rgba(124,92,252,0.35); }
+  .btn-glow{ box-shadow: 0 0 0 1px rgba(124,92,252,0.5), 0 0 24px -4px rgba(124,92,252,0.7); }
+  .btn-glow:hover{ box-shadow: 0 0 0 1px rgba(124,92,252,0.8), 0 0 36px -2px rgba(124,92,252,0.9); }
+  .dz-idle{ border-color:#262B38; }
+  .dz-drag{ border-color:#7C5CFC; background:rgba(124,92,252,0.07); box-shadow: inset 0 0 40px -10px rgba(124,92,252,0.5), 0 0 40px -8px rgba(124,92,252,0.5); }
+  .dz-drag .dz-icon{ animation: bob 0.9s ease-in-out infinite; }
+  @keyframes bob{ 0%,100%{ transform:translateY(0) scale(1);} 50%{ transform:translateY(-6px) scale(1.06);} }
+  .pulse-dot{ animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1;} 50%{ opacity:.35;} }
+  .stamp-in{ animation: stampIn .4s cubic-bezier(.2,.9,.3,1.2) forwards; }
+  @keyframes stampIn{ from{opacity:0; transform:scale(.7);} to{opacity:1; transform:scale(1);} }
+  @media (prefers-reduced-motion: reduce){ .dz-drag .dz-icon, .pulse-dot, .stamp-in{ animation:none; } }
+  ::selection{ background:#7C5CFC; color:#08090D; }
+  .tab-card{ border-color:#262B38; background:#161923; }
+  .tab-card:hover{ border-color:rgba(124,92,252,0.5); }
+  .tab-card.active{
+    border-color:#7C5CFC;
+    background:rgba(124,92,252,0.10);
+    box-shadow: 0 0 0 1px rgba(124,92,252,0.35), 0 0 26px -6px rgba(124,92,252,0.6);
+  }
+  .tab-card.active .tab-check{ opacity:1; transform:scale(1); }
+  .tab-check{ opacity:0; transform:scale(.5); transition: all .15s ease; }
+  .spinner{ border:2px solid rgba(233,235,243,0.2); border-top-color:#E9EBF3; border-radius:50%; width:16px; height:16px; animation:spin .7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+</style>
+</head>
+
+<body class="min-h-screen font-body text-text flex flex-col items-center px-4 py-10 sm:py-16 relative">
+<div class="grain"></div>
+
+  <!-- Header -->
+  <header class="w-full max-w-xl flex items-center justify-between mb-10 relative z-10">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-violet to-cyan flex items-center justify-center text-void font-display font-bold text-sm">⇄</div>
+      <span class="font-display font-semibold tracking-tight text-lg">Local Convert</span>
+    </div>
+    <div class="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest text-ok border border-ok/30 rounded-full px-2.5 py-1 bg-ok/5">
+      <span class="w-1.5 h-1.5 rounded-full bg-ok pulse-dot"></span> No server · No upload
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <div class="w-full max-w-xl mb-8 relative z-10">
+    <h1 class="font-display text-3xl sm:text-4xl font-semibold leading-tight tracking-tight">
+      Files, converted<br>
+      <span class="bg-gradient-to-r from-violet to-cyan bg-clip-text text-transparent">without ever leaving this tab.</span>
+    </h1>
+    <p class="text-mute mt-3 text-sm sm:text-base">Pick a conversion, drop a file, get a new one back — everything runs locally in your browser.</p>
+  </div>
+
+  <!-- Card -->
+  <main class="w-full max-w-xl glass ring-glow rounded-3xl overflow-visible relative z-10">
+
+    <!-- Conversion tabs -->
+    <div class="p-5 sm:p-6 pb-4">
+      <span class="font-mono text-[10px] uppercase tracking-widest text-mute block mb-3">Conversion type</span>
+      <div id="tabGroup" role="tablist" class="grid grid-cols-2 gap-2.5">
+        <!-- tab cards injected by JS -->
+      </div>
+    </div>
+
+    <!-- Dropzone -->
+    <div class="px-5 sm:px-6 pb-5">
+      <label id="dropzone" for="fileInput"
+        class="dz-idle block border-2 border-dashed rounded-2xl px-4 py-10 text-center cursor-pointer transition-all duration-200">
+        <input type="file" id="fileInput" class="hidden" />
+        <div id="dzIcon" class="dz-icon w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center text-2xl bg-panel2 border border-hair"></div>
+        <div class="font-display font-medium text-sm" id="dzLabel"></div>
+        <div class="font-mono text-[11px] text-mute mt-1" id="dzAccept"></div>
+      </label>
+
+      <ul id="fileList" class="mt-4 space-y-2"></ul>
+
+      <div class="flex items-center gap-3 mt-5">
+        <button id="convertBtn" disabled
+          class="btn-glow flex items-center gap-2 font-display font-semibold text-sm bg-gradient-to-r from-violet to-cyan text-void rounded-xl px-5 py-2.5 disabled:opacity-25 disabled:shadow-none disabled:cursor-not-allowed transition-all">
+          <span id="convertLabel">Convert →</span>
+        </button>
+        <span id="statusText" class="font-mono text-xs text-mute"></span>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div id="resultBox" class="hidden border-t border-hair px-5 sm:px-6 py-5 flex items-center justify-between gap-4 bg-panel2/60 rounded-b-3xl">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="stamp-in w-9 h-9 rounded-xl bg-ok/10 border border-ok/40 text-ok flex items-center justify-center shrink-0">✓</div>
+        <div class="min-w-0">
+          <div class="font-mono text-sm truncate" id="resultName"></div>
+          <div class="font-mono text-[11px] text-mute">Ready to download</div>
+        </div>
+      </div>
+      <a id="downloadBtn" download class="btn-glow font-display font-semibold text-sm bg-gradient-to-r from-violet to-cyan text-void rounded-xl px-4 py-2.5 shrink-0">Download ⭳</a>
+    </div>
+  </main>
+
+  <footer class="w-full max-w-xl mt-6 text-center font-mono text-[11px] text-mute relative z-10">
+    mammoth · sheetjs · pdf-lib · html2pdf.js · pdf.js — all client-side · UTF-8 / Arabic &amp; Latin text supported
+  </footer>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+/* ---------- Icons (inline, tinted per format) ---------- */
+const ICONS = {
+  docx: { glyph:'W', grad:'from-violet to-violet/60', accent:'text-violet' },
+  sheet:{ glyph:'X', grad:'from-cyan to-cyan/60',      accent:'text-cyan'  },
+  img:  { glyph:'◧', grad:'from-amber to-amber/60',    accent:'text-amber' },
+  pdf:  { glyph:'▤', grad:'from-rose to-rose/60',       accent:'text-rose'  },
+};
+
+const MODES = {
+  docx2pdf: {
+    icon:'docx', accept:'.docx', multiple:false,
+    title:'Microsoft Word (.docx) → PDF',
+    sub:'Convert a Word document to a formatted PDF',
+    dzLabel:'Drag a Word (.docx) file here, or click to browse',
+    dzHint:'Accepts .docx',
+  },
+  sheet2pdf: {
+    icon:'sheet', accept:'.xlsx,.xls,.csv', multiple:false,
+    title:'Microsoft Excel (.xlsx) / CSV → PDF',
+    sub:'Convert a spreadsheet to a table-formatted PDF',
+    dzLabel:'Drag an .xlsx or .csv file here, or click to browse',
+    dzHint:'Accepts .xlsx, .xls, .csv',
+  },
+  img2pdf: {
+    icon:'img', accept:'.jpg,.jpeg,.png', multiple:true,
+    title:'Images (JPG/PNG) → PDF',
+    sub:'Combine one or more images into a single PDF',
+    dzLabel:'Drag image(s) here, or click to browse',
+    dzHint:'Accepts .jpg, .jpeg, .png — multiple allowed',
+  },
+  pdf2txt: {
+    icon:'pdf', accept:'.pdf', multiple:false,
+    title:'PDF Document → Text (.txt)',
+    sub:'Extract all readable text from a PDF',
+    dzLabel:'Drag a .pdf file here, or click to browse',
+    dzHint:'Accepts .pdf',
+  },
+};
+
+const tabGroup     = document.getElementById('tabGroup');
+const dropzone     = document.getElementById('dropzone');
+const dzIcon       = document.getElementById('dzIcon');
+const dzLabel      = document.getElementById('dzLabel');
+const dzAccept     = document.getElementById('dzAccept');
+const fileInput    = document.getElementById('fileInput');
+const fileListEl   = document.getElementById('fileList');
+const convertBtn   = document.getElementById('convertBtn');
+const convertLabel = document.getElementById('convertLabel');
+const statusText   = document.getElementById('statusText');
+const resultBox    = document.getElementById('resultBox');
+const resultName   = document.getElementById('resultName');
+const downloadBtn  = document.getElementById('downloadBtn');
+
+let currentMode = 'docx2pdf';
+let queuedFiles = [];
+
+function iconBadge(key, size='w-9 h-9 text-base') {
+  const i = ICONS[key];
+  return `<span class="${size} rounded-xl bg-gradient-to-br ${i.grad} flex items-center justify-center text-void font-display font-bold shrink-0">${i.glyph}</span>`;
+}
+
+function buildTabs() {
+  tabGroup.innerHTML = Object.entries(MODES).map(([key, m]) => `
+    <button data-key="${key}" type="button" role="tab" aria-selected="false"
+      class="tab-card relative flex items-center gap-3 border rounded-2xl px-3.5 py-3 text-left transition-all duration-150">
+      ${iconBadge(m.icon)}
+      <span class="min-w-0 flex-1">
+        <span class="block font-display font-medium text-[13px] leading-snug truncate">${m.title}</span>
+        <span class="block font-mono text-[10px] text-mute truncate">${m.sub}</span>
+      </span>
+      <span class="tab-check absolute top-2 right-2 w-4 h-4 rounded-full bg-violet text-void text-[10px] flex items-center justify-center leading-none">✓</span>
+    </button>
+  `).join('');
+  tabGroup.querySelectorAll('.tab-card').forEach(btn => {
+    btn.addEventListener('click', () => setMode(btn.dataset.key));
+  });
+}
+
+// Dynamically syncs: active tab highlight, dropzone copy, and the <input accept> filter
+function setMode(key) {
+  currentMode = key;
+  const m = MODES[key];
+
+  tabGroup.querySelectorAll('.tab-card').forEach(btn => {
+    const isActive = btn.dataset.key === key;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-selected', String(isActive));
+  });
+
+  fileInput.accept = m.accept;      // only compatible files are selectable/droppable
+  fileInput.multiple = m.multiple;
+  dzLabel.textContent = m.dzLabel;  // e.g. "Drag an .xlsx or .csv file here, or click to browse"
+  dzAccept.textContent = m.dzHint;
+  dzIcon.innerHTML = ICONS[m.icon].glyph;
+  dzIcon.className = `dz-icon w-12 h-12 mx-auto mb-3 rounded-2xl flex items-center justify-center text-2xl bg-panel2 border border-hair ${ICONS[m.icon].accent}`;
+  resetQueue();
+}
+
+function resetQueue() {
+  queuedFiles = [];
+  fileListEl.innerHTML = '';
+  convertBtn.disabled = true;
+  statusText.textContent = '';
+  statusText.classList.remove('text-rose');
+  resultBox.classList.add('hidden');
+  if (downloadBtn.href) URL.revokeObjectURL(downloadBtn.href);
+}
+
+function extOf(name){ return name.split('.').pop().toLowerCase(); }
+function validExt(name){
+  const allowed = MODES[currentMode].accept.split(',').map(s => s.replace('.','').trim());
+  return allowed.includes(extOf(name));
+}
+function fmtSize(bytes){
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1024/1024).toFixed(1) + ' MB';
+}
+
+function renderQueue() {
+  const key = MODES[currentMode].icon;
+  fileListEl.innerHTML = queuedFiles.map((f, i) => `
+    <li class="flex items-center gap-3 bg-panel2 border border-hair rounded-xl px-3 py-2.5">
+      ${iconBadge(key, 'w-8 h-8 text-sm')}
+      <span class="min-w-0 flex-1">
+        <span class="block font-mono text-xs truncate">${f.name}</span>
+        <span class="block font-mono text-[10px] text-mute">${fmtSize(f.size)} · ${extOf(f.name).toUpperCase()}</span>
+      </span>
+      <button data-i="${i}" class="text-rose hover:text-rose/70 shrink-0 text-sm">✕</button>
+    </li>
+  `).join('');
+  fileListEl.querySelectorAll('button').forEach(btn => {
+    btn.onclick = () => { queuedFiles.splice(+btn.dataset.i, 1); renderQueue(); convertBtn.disabled = queuedFiles.length === 0; };
+  });
+}
+
+function addFiles(fileArr) {
+  const bad = fileArr.filter(f => !validExt(f.name));
+  if (bad.length) {
+    statusText.textContent = `Rejected ${bad.map(f => f.name).join(', ')} — doesn't match this conversion's accepted format`;
+    statusText.classList.add('text-rose');
+  } else {
+    statusText.textContent = '';
+    statusText.classList.remove('text-rose');
+  }
+  const good = fileArr.filter(f => validExt(f.name));
+  queuedFiles = MODES[currentMode].multiple ? queuedFiles.concat(good) : good.slice(0, 1);
+  renderQueue();
+  convertBtn.disabled = queuedFiles.length === 0;
+  resultBox.classList.add('hidden');
+}
+
+fileInput.addEventListener('change', e => addFiles(Array.from(e.target.files)));
+['dragover','dragenter'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('dz-idle'); dropzone.classList.add('dz-drag'); }));
+['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('dz-idle'); dropzone.classList.remove('dz-drag'); }));
+dropzone.addEventListener('drop', e => addFiles(Array.from(e.dataTransfer.files)));
+
+function setStatus(msg, isError=false){
+  statusText.textContent = msg;
+  statusText.classList.toggle('text-rose', isError);
+}
+
+function showResult(blob, filename) {
+  if (downloadBtn.href) URL.revokeObjectURL(downloadBtn.href);
+  const url = URL.createObjectURL(blob);
+  downloadBtn.href = url;
+  downloadBtn.download = filename;
+  resultName.textContent = filename;
+  resultBox.classList.remove('hidden');
+}
+
+/* ---------- Bidi / Arabic-Latin text handling ---------- */
+const ARABIC_RE = /[\u0600-\u06FF\u0750-\u077F]/;
+function isMostlyArabic(str) {
+  const letters = str.replace(/[^\p{L}]/gu, '');
+  if (!letters) return false;
+  const arabicCount = (letters.match(new RegExp(ARABIC_RE, 'g')) || []).length;
+  return arabicCount / letters.length > 0.4;
+}
+function applyBidi(root) {
+  root.querySelectorAll('p, li, h1, h2, h3, h4, h5, h6, td, th, span, div').forEach(el => {
+    const text = el.textContent || '';
+    if (text.trim() && isMostlyArabic(text)) {
+      el.style.direction = 'rtl';
+      el.style.textAlign = 'right';
+      el.style.unicodeBidi = 'plaintext';
+    } else {
+      el.style.unicodeBidi = 'plaintext';
+    }
+  });
+}
+
+/* ---------- Converters ---------- */
+
+async function docxToPdf(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const styleMap = [
+    "p[style-name='Heading 1'] => h1:fresh",
+    "p[style-name='Heading 2'] => h2:fresh",
+    "p[style-name='Heading 3'] => h3:fresh",
+    "p[style-name='Title'] => h1.title:fresh",
+  ];
+  const { value: html } = await mammoth.convertToHtml({ arrayBuffer }, { styleMap });
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `
+    width:720px; padding:56px 60px; background:#fff; color:#111;
+    font-family:'Noto Sans Arabic','Inter',Arial,sans-serif;
+    font-size:13.5px; line-height:1.75;
+  `;
+  wrap.innerHTML = html;
+  wrap.querySelectorAll('h1,h2,h3').forEach(h => { h.style.lineHeight = '1.4'; h.style.margin = '18px 0 10px'; });
+  wrap.querySelectorAll('p').forEach(p => { p.style.margin = '0 0 12px'; });
+  wrap.querySelectorAll('table').forEach(t => {
+    t.style.borderCollapse = 'collapse';
+    t.style.width = '100%';
+    t.style.margin = '14px 0';
+    t.querySelectorAll('td,th').forEach(c => {
+      c.style.border = '1px solid #999';
+      c.style.padding = '6px 8px';
+      c.style.lineHeight = '1.5';
+    });
+  });
+  applyBidi(wrap);
+  document.body.appendChild(wrap);
+
+  const blob = await html2pdf().set({
+    margin: 0,
+    filename: 'converted.pdf',
+    html2canvas: { scale: 2.2, useCORS: true, letterRendering: true },
+    jsPDF: { unit: 'pt', format: 'a4' },
+    pagebreak: { mode: ['css', 'legacy'] },
+  }).from(wrap).outputPdf('blob');
+
+  document.body.removeChild(wrap);
+  return blob;
+}
+
+async function sheetToPdf(file) {
+  const ext = extOf(file.name);
+  let workbook;
+  if (ext === 'csv') {
+    const text = await file.text();
+    workbook = XLSX.read(text, { type: 'string' });
+  } else {
+    const buf = await file.arrayBuffer();
+    workbook = XLSX.read(buf, { type: 'array' });
+  }
+  const sheetName = workbook.SheetNames[0];
+  const tableHtml = XLSX.utils.sheet_to_html(workbook.Sheets[sheetName]);
+
+  const wrap = document.createElement('div');
+  wrap.style.cssText = `
+    padding:32px; background:#fff; color:#111;
+    font-family:'Noto Sans Arabic','Inter',Arial,sans-serif; font-size:11.5px;
+  `;
+  wrap.innerHTML = tableHtml;
+  wrap.querySelectorAll('table').forEach((t, ti) => {
+    t.style.borderCollapse = 'collapse';
+    t.style.width = '100%';
+    const rows = t.querySelectorAll('tr');
+    rows.forEach((row, ri) => {
+      row.querySelectorAll('td,th').forEach(c => {
+        c.style.border = '1px solid #888';
+        c.style.padding = '5px 8px';
+        c.style.lineHeight = '1.5';
+        if (ri === 0) { c.style.background = '#eef0f7'; c.style.fontWeight = '600'; }
+      });
+    });
+  });
+  applyBidi(wrap);
+  document.body.appendChild(wrap);
+
+  const blob = await html2pdf().set({
+    margin: 8,
+    filename: 'converted.pdf',
+    html2canvas: { scale: 2.2, useCORS: true, letterRendering: true },
+    jsPDF: { unit: 'pt', format: 'a4', orientation: 'landscape' },
+    pagebreak: { mode: ['css', 'legacy'] },
+  }).from(wrap).outputPdf('blob');
+
+  document.body.removeChild(wrap);
+  return blob;
+}
+
+async function imagesToPdf(files) {
+  const { PDFDocument } = PDFLib;
+  const pdfDoc = await PDFDocument.create();
+  for (const file of files) {
+    const bytes = await file.arrayBuffer();
+    const ext = extOf(file.name);
+    const img = ext === 'png' ? await pdfDoc.embedPng(bytes) : await pdfDoc.embedJpg(bytes);
+    const A4 = { w: 595.28, h: 841.89 };
+    const scale = Math.min(A4.w / img.width, A4.h / img.height, 1) * 0.92;
+    const w = img.width * scale, h = img.height * scale;
+    const page = pdfDoc.addPage([A4.w, A4.h]);
+    page.drawImage(img, { x: (A4.w - w) / 2, y: (A4.h - h) / 2, width: w, height: h });
+  }
+  const bytes = await pdfDoc.save();
+  return new Blob([bytes], { type: 'application/pdf' });
+}
+
+async function pdfToText(file) {
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  let out = '';
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    out += content.items.map(it => it.str).join(' ') + '\n\n';
+  }
+  // UTF-8 BOM ensures Arabic + Latin text render correctly in all text editors
+  return new Blob(['\ufeff' + out], { type: 'text/plain;charset=utf-8' });
+}
+
+/* ---------- Dispatch ---------- */
+
+convertBtn.addEventListener('click', async () => {
+  if (queuedFiles.length === 0) return;
+  convertBtn.disabled = true;
+  convertLabel.innerHTML = '<span class="spinner inline-block align-middle"></span> Converting…';
+  setStatus('');
+  resultBox.classList.add('hidden');
+  try {
+    let blob, outName;
+    const base = queuedFiles[0].name.replace(/\.[^.]+$/, '');
+    if (currentMode === 'docx2pdf')       { blob = await docxToPdf(queuedFiles[0]);   outName = base + '.pdf'; }
+    else if (currentMode === 'sheet2pdf') { blob = await sheetToPdf(queuedFiles[0]);  outName = base + '.pdf'; }
+    else if (currentMode === 'img2pdf')   { blob = await imagesToPdf(queuedFiles);    outName = (queuedFiles.length > 1 ? 'images' : base) + '.pdf'; }
+    else if (currentMode === 'pdf2txt')   { blob = await pdfToText(queuedFiles[0]);   outName = base + '.txt'; }
+    showResult(blob, outName);
+  } catch (err) {
+    console.error(err);
+    setStatus('Conversion failed — ' + err.message, true);
+  } finally {
+    convertLabel.textContent = 'Convert →';
+    convertBtn.disabled = queuedFiles.length === 0;
+  }
+});
+
+buildTabs();
+setMode('docx2pdf');
+</script>
+</body>
+</html>
